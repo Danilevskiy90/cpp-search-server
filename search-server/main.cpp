@@ -1,154 +1,225 @@
 #include <algorithm>
 #include <iostream>
-#include <map>
 #include <set>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
 
 using namespace std;
 
-
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
-
-string ReadLine() 
+string ReadLine()
 {
-	string s;
-	getline(cin, s);
-	return s;
+    string s;
+    getline(cin, s);
+    return s;
 }
 
-int ReadLineWithNumber() 
+int ReadLineWithNumber()
 {
-	int result;
-	cin >> result;
-	ReadLine();
-	return result;
+    int result = 0;
+    cin >> result;
+    ReadLine();
+    return result;
 }
 
-vector<string> SplitIntoWords(const string& text) 
+vector<string> SplitIntoWords(const string &text)
 {
-	vector<string> words;
-	string word;
-	for (const char c : text) 
+    vector<string> words;
+    string word;
+    for (const char c : text)
     {
-		if (c == ' ') 
+        if (c == ' ')
         {
-			words.push_back(word);
-			word = "";
-		} 
-        else 
+
+            if (!word.empty())
+            {
+                words.push_back(word);
+                word.clear();
+            }
+        }
+        else
         {
-			word += c;
-		}
-	}
-	words.push_back(word);
-	
-	return words;
+            word += c;
+        }
+    }
+    if (!word.empty())
+    {
+        words.push_back(word);
+    }
+
+    return words;
 }
 
-struct Document 
+struct Document
 {
-	int id;
-	int relevance;
+    int id;
+    int relevance;
 };
 
-
-
-bool HasDocumentGreaterRelevance(const Document& lhs, const Document& rhs) 
-{
-	return lhs.relevance > rhs.relevance;
-}
-
-class SearchServer 
+class SearchServer
 {
 public:
-    vector<Document> FindTopDocuments(const string& query) 
-    {	
+    void SetStopWords(const string &text)
+    {
+        for (const string &word : SplitIntoWords(text))
+        {
+            stop_words_.insert(word);
+        }
+    }
+
+    void AddDocument(int document_id, const string &document)
+    {
+        const vector<string> words = SplitIntoWordsNoStop(document);
+        for (const string& s : words)
+        {
+            documents_[s].insert(document_id);
+        }
+    }
+
+    vector<Document> FindTopDocuments(const string &raw_query) const
+    {
+        const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query);
-        sort(matched_documents.begin(), matched_documents.end(), HasDocumentGreaterRelevance);
+
+        sort(matched_documents.begin(), matched_documents.end(),
+             [](const Document &lhs, const Document &rhs)
+             {
+                 return lhs.relevance > rhs.relevance;
+             });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT)
         {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return matched_documents;
     }
-    void AddDocument(int document_id, const string& document) 
-    {
-        for (const string& word : SplitIntoWordsNoStop(document)) 
-        {
-            word_to_documents_[word].insert(document_id);
-        }
-    }
-    set<string> SetStopWords(const string& text) 
-    {
-        set<string> stop_words;
-        for (const string& word : SplitIntoWords(text)) 
-        {
-            stop_words_.insert(word);
-        }
-        return stop_words;
-    }
 
 private:
-    map<string, set<int>> word_to_documents_;
+
+
+    struct Query
+    {
+        set<string> minus_slova;
+        set<string> plus_slova;
+    };
+
+    map<string,set<int>> documents_;
+
     set<string> stop_words_;
-    vector<string> SplitIntoWordsNoStop(const string& text) 
+
+    bool IsStopWord(const string &word) const
+    {
+        return stop_words_.count(word) > 0;
+    }
+
+    vector<string> SplitIntoWordsNoStop(const string &text) const
     {
         vector<string> words;
-        for (const string& word : SplitIntoWords(text)) 
+        for (const string &word : SplitIntoWords(text))
         {
-            if (stop_words_.count(word) == 0) 
+            if (!IsStopWord(word))
             {
                 words.push_back(word);
             }
         }
         return words;
     }
-    vector<Document> FindAllDocuments(const string& query) 
+
+    Query ParseQuery(const string &text) const
     {
-        const vector<string> query_words = SplitIntoWordsNoStop(query);
-        map<int, int> document_to_relevance;
-        for (const string& word : query_words) 
+        Query query;
+        for (const string &word : SplitIntoWordsNoStop(text))
         {
-            if (word_to_documents_.count(word) == 0)
+            if (word[0] == '-')
+            {
+                query.minus_slova.insert(word.substr(1));
+                continue;
+            }
+            query.plus_slova.insert(word);
+        }
+        return query;
+    }
+
+    vector<Document> FindAllDocuments(const Query &query) const
+    {
+        map<int,int> document_to_relevance;
+        for (const string& plus_slova : query.plus_slova)
+        {
+            if (documents_.count(plus_slova)==0)
             {
                 continue;
             }
-            for (const int document_id : word_to_documents_.at(word)) 
+            for (int r : documents_.at(plus_slova))
             {
-                ++document_to_relevance[document_id];
+                document_to_relevance[r]=document_to_relevance[r]+1;
             }
         }
-        vector<Document> matched_documents;
-        for (auto [document_id, relevance] : document_to_relevance) 
+        for (const string& minus_slova : query.minus_slova)
         {
-            matched_documents.push_back({document_id, relevance});
+            if (documents_.count(minus_slova)==0)
+            {
+                continue;
+            }
+            for (int r : documents_.at(minus_slova))
+            {
+                document_to_relevance.erase(r);
+            }
         }
-	
-        return matched_documents;
+        vector<Document> document_to;
+        for (auto paIr: document_to_relevance)
+        {
+            document_to.push_back({paIr.first, paIr.second});
+        }
+        return document_to;
     }
-}; 
+    /*static int MatchDocument(const string &content, const Query &query)
+    {
+        if (query.plus_slova.empty())
+        {
+            return 0;
+        }
+        set<string> matched_words;
+        for (const string &word : content.words)
+        {
+            // обработка минус-слов
+            if (matched_words.count(word) != 0)
+            {
+                continue;
+            }
+            if (query.plus_slova.count(word) != 0)
+            {
+                matched_words.insert(word);
+            }
+        }
+        return static_cast<int>(matched_words.size());
+    }*/
+};
 
-SearchServer CreateSearchServer ()
+SearchServer CreateSearchServer()
 {
     SearchServer search_server;
     search_server.SetStopWords(ReadLine());
+
     const int document_count = ReadLineWithNumber();
-    for (int r=0;r<document_count;r++)
+    for (int document_id = 0; document_id < document_count; ++document_id)
     {
-        search_server.AddDocument(r, ReadLine());
+        search_server.AddDocument(document_id, ReadLine());
     }
+
     return search_server;
 }
 
-int main() 
+int main()
 {
-    SearchServer search_server=CreateSearchServer();
-    //search_server.FindTopDocuments(ReadLine());
-    for (auto [document_id, relevance] : search_server.FindTopDocuments(ReadLine()))
+
+    const SearchServer search_server = CreateSearchServer();
+
+    const string query = ReadLine();
+    for (const auto &[document_id, relevance] : search_server.FindTopDocuments(query))
     {
-        cout << "{ document_id = " << document_id << ", relevance = " << relevance << " }" << endl;
+        cout << "{ document_id = "s << document_id << ", "
+             << "relevance = "s << relevance << " }"s << endl;
     }
 }
