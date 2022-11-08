@@ -10,6 +10,7 @@
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double EPSILON = 1e-6;
 
 string ReadLine() 
 {
@@ -26,6 +27,7 @@ int ReadLineWithNumber()
     return result;
 }
 
+//разделить на слова
 vector<string> SplitIntoWords(const string& text) 
 {
     vector<string> words;
@@ -36,7 +38,8 @@ vector<string> SplitIntoWords(const string& text)
         {
             words.push_back(word);
             word = "";
-        } else 
+        } 
+        else 
         {
             word += c;
         }
@@ -64,7 +67,8 @@ enum class DocumentStatus
 class SearchServer 
 {
 public:
-    void SetStopWords(const string& text) 
+    //установить стоп-слова
+    void SetStopWords(const string& text)
     {
         for (const string& word : SplitIntoWords(text)) 
         {
@@ -72,6 +76,7 @@ public:
         }
     }    
     
+    //добавить документ
     void AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings) 
     {
         document_status[document_id] = status;
@@ -83,22 +88,81 @@ public:
         }
         document_ratings_.emplace(document_id, ComputeAverageRating(ratings));
     }
-
-    vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const 
-    {            
+    //найти лучшие документы
+    template<typename Predicat_f>
+    vector<Document> FindTopDocuments(const string& raw_query, Predicat_f predicat_f) const 
+    {
         const Query query = ParseQuery(raw_query);
-        auto matched_documents = FindAllDocuments(query, status);
+        auto matched_documents = FindAllDocuments(query, predicat_f);
         
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) 
              {
-                 return lhs.relevance > rhs.relevance;
+                return lhs.relevance > rhs.relevance ||(abs(lhs.relevance - rhs.relevance) < EPSILON && (lhs.rating>rhs.rating));
              });
+
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) 
         {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return matched_documents;
+    }
+
+    vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const 
+    {
+        return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus stat, int rating) { return stat == status; });
+    }
+
+    vector<Document> FindTopDocuments(const string& raw_query) const
+    {
+        return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+    }
+
+    int GetDocumentCount() const
+    {
+        return document_ratings_.size();
+    }
+
+    tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const
+    {
+        const Query query = ParseQuery(raw_query);
+        vector<string> document_words;
+
+        for (const string& word : query.plus_words) 
+        {
+            if (word_to_document_freqs_.count(word) == 0) 
+            {
+                continue;
+            }
+            for (const auto [id, _] : word_to_document_freqs_.at(word)) 
+            {
+                if (id == document_id)
+                {
+                    document_words.push_back(word);
+                }
+            }
+        }
+        sort(document_words.begin(), document_words.end(),
+        [](string& s1, string& s2)
+        {
+            return s1 < s2;
+        });
+
+        for (const string& word : query.minus_words) 
+        {
+            if (word_to_document_freqs_.count(word) == 0) 
+            {
+                continue;
+            }
+            for (const auto [id, _] : word_to_document_freqs_.at(word)) 
+            {
+                if (id == document_id)
+                {
+                    document_words.clear();
+                }
+            }
+        }
+        return {document_words, document_status.at(document_id)};
     }
     
 private:
@@ -106,6 +170,7 @@ private:
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, int> document_ratings_;
     map<int, DocumentStatus> document_status; 
+
     struct QueryWord 
     {
         string data;
@@ -123,7 +188,8 @@ private:
     {
         return stop_words_.count(word) > 0;
     }
-    
+
+    //Разделить на слова без стоп-слов
     vector<string> SplitIntoWordsNoStop(const string& text) const 
     {
         vector<string> words;
@@ -137,6 +203,7 @@ private:
         return words;
     }
     
+    //Вычислить средний рейтинг
     static int ComputeAverageRating(const vector<int>& ratings) 
     {
         if (ratings.empty()) 
@@ -151,7 +218,7 @@ private:
         return rating_sum / static_cast<int>(ratings.size());
     }
  
-    
+    //Разобрать слово запроса
     QueryWord ParseQueryWord(string text) const 
     {
         bool is_minus = false;
@@ -168,6 +235,7 @@ private:
         };
     }
     
+    //разобрать запрос
     Query ParseQuery(const string& text) const 
     {
         Query query;
@@ -189,13 +257,15 @@ private:
         return query;
     }
     
-    // Existence required
+    // Вычислить Word Inverse DocumentFreq
     double ComputeWordInverseDocumentFreq(const string& word) const 
     {
         return log(document_ratings_.size() * 1.0 / word_to_document_freqs_.at(word).size());
     }
 
-    vector<Document> FindAllDocuments(const Query& query, DocumentStatus status) const 
+    //найти все документы
+    template<typename Predicat_f>
+    vector<Document> FindAllDocuments(const Query& query, Predicat_f predicate_f) const 
     {
         map<int, double> document_to_relevance;
         for (const string& word : query.plus_words) 
@@ -226,7 +296,7 @@ private:
         vector<Document> matched_documents;
         for (const auto [document_id, relevance] : document_to_relevance) 
         {
-            if (document_status.at(document_id) != status)
+            if (!predicate_f(document_id, document_status.at(document_id),document_ratings_.at(document_id)))
             {
                 continue;
             }
@@ -260,15 +330,18 @@ int main()
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
     search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
 
-    cout << "ACTUAL:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL)) 
-    {
+    cout << "ACTUAL by default:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
         PrintDocument(document);
     }
 
     cout << "BANNED:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) 
-    {
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
+        PrintDocument(document);
+    }
+
+    cout << "Even ids:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
         PrintDocument(document);
     }
 
