@@ -64,11 +64,9 @@ enum class DocumentStatus
     REMOVED,
 };
 
-struct StatusAndRating
-    {
-        DocumentStatus status;
-        int rating;
-    };
+
+
+
 
 class SearchServer 
 {
@@ -175,6 +173,13 @@ public:
     }
     
 private:
+
+    struct StatusAndRating
+    {
+        DocumentStatus status;
+        int rating;
+    };
+
     set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     //map<int, int> document_ratings_;
