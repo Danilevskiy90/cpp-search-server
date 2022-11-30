@@ -413,7 +413,7 @@ void TestExcludeStopWordsFromAddedDocumentContent()
 }
 
 //Удаление документов с минус-словами
-void DeletingDocumentsWithNegativeeywords()
+void TestDeletingDocumentsWithNegativeeywords()
 {
     const int doc_id = 42;
     const string content = "cat in the city"s;
@@ -430,7 +430,7 @@ void DeletingDocumentsWithNegativeeywords()
 /*Сверяем релевантность возвращаемых документов с ожидаемой, совпадение результатов гарантирует
 что система нашла все слова из запроса. 
 */
-void DocumentMatching()
+void TestDocumentMatching()
 {
     {
         SearchServer server;
@@ -452,7 +452,7 @@ void DocumentMatching()
 }
 
 //Сортировка найденных документов по релевантности.
-void SortingOfFoundDocumentsByRelevance()
+void TestSortingOfFoundDocumentsByRelevance()
 {
     SearchServer server;
     server.SetStopWords("и в на"s);
@@ -461,13 +461,11 @@ void SortingOfFoundDocumentsByRelevance()
     server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
     server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, {9});
     const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s);
-    ASSERT(found_docs[0].id == 1);
-    ASSERT(found_docs[1].id == 0);
-    ASSERT(found_docs[2].id == 2);
+    ASSERT((found_docs[0].relevance > found_docs[1].relevance) && (found_docs[1].relevance > found_docs[2].relevance));
 }
 
 //Вычисление рейтинга документов.
-void CalculationOfDocumentRating()
+void TestCalculationOfDocumentRating()
 {
     SearchServer server;
     server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
@@ -476,7 +474,7 @@ void CalculationOfDocumentRating()
 }
 
 //Фильтрация результатов поиска с использованием предиката
-void FilteringSearchResultsUsingPredicate()
+void TestFilteringSearchResultsUsingPredicate()
 {
     SearchServer server;
     server.SetStopWords("и в на"s);
@@ -503,11 +501,11 @@ void FilteringSearchResultsUsingPredicate()
 void TestSearchServer() 
 {
     RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
-    RUN_TEST(DeletingDocumentsWithNegativeeywords);
-    RUN_TEST(DocumentMatching);
-    RUN_TEST(SortingOfFoundDocumentsByRelevance);
-    RUN_TEST(CalculationOfDocumentRating);
-    RUN_TEST(FilteringSearchResultsUsingPredicate);
+    RUN_TEST(TestDeletingDocumentsWithNegativeeywords);
+    RUN_TEST(TestDocumentMatching);
+    RUN_TEST(TestSortingOfFoundDocumentsByRelevance);
+    RUN_TEST(TestCalculationOfDocumentRating);
+    RUN_TEST(TestFilteringSearchResultsUsingPredicate);
 }
 
 
