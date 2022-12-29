@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 
-#include "document.h"
 
 template <typename Iterator>
 struct IteratorRange
@@ -14,14 +13,6 @@ struct IteratorRange
     Iterator finish;
 };
 
-// std::ostream& operator << (std::ostream& out, const Document& document)
-// {
-//     out << "{ "
-//          << "document_id = " << document.id << ", "
-//          << "relevance = " << document.relevance << ", "
-//          << "rating = " << document.rating << " }" ;    
-//     return out;
-// }
     
 template <typename Iterator>
 std::ostream& operator << (std::ostream& out, const IteratorRange<Iterator>& page)

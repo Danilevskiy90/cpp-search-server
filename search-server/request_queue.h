@@ -16,52 +16,7 @@ public:
     
     // сделаем "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
     template <typename DocumentPredicate>
-    std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) 
-    {
-        // напишите реализацию
-
-        //кол-во поступивших запросов не должно превышать кол-во минут  в дне,
-        //иначе старые запросы удаляются
-        auto matched_documents = search_server.FindTopDocuments(raw_query, document_predicate);
-        if (total_results < min_in_day_)
-        {
-            if(!matched_documents.empty())
-            {
-                requests_.push_back({true, raw_query});
-            }
-            else
-            {
-                requests_.push_back({false, raw_query});
-                empty_results +=1;
-            }
-        }
-        else
-        {
-            if (requests_.front().empty_result)
-            {
-                requests_.pop_front();
-            }
-            else
-            {
-                empty_results -=1;
-                requests_.pop_front();
-            }
-            total_results-=1;
-
-            if(!matched_documents.empty())
-            {
-                requests_.push_back({true, raw_query});
-            }
-            else
-            {
-                requests_.push_back({false, raw_query});
-                empty_results +=1;
-            }
-        }
-        total_results +=1;
-
-        return matched_documents;
-    }
+    std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate);
     
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status = DocumentStatus::ACTUAL);
 
@@ -84,3 +39,51 @@ private:
     const SearchServer& search_server;
 }; 
 
+
+template <typename DocumentPredicate>
+std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) 
+{
+    // напишите реализацию
+
+    //кол-во поступивших запросов не должно превышать кол-во минут  в дне,
+    //иначе старые запросы удаляются
+    auto matched_documents = search_server.FindTopDocuments(raw_query, document_predicate);
+    if (total_results < min_in_day_)
+    {
+        if(!matched_documents.empty())
+        {
+            requests_.push_back({true, raw_query});
+        }
+        else
+        {
+            requests_.push_back({false, raw_query});
+            ++empty_results;
+        }
+    }
+    else
+    {
+        if (requests_.front().empty_result)
+        {
+            requests_.pop_front();
+        }
+        else
+        {
+            --empty_results;
+            requests_.pop_front();
+        }
+        ++total_results;
+
+        if(!matched_documents.empty())
+        {
+            requests_.push_back({true, raw_query});
+        }
+        else
+        {
+            requests_.push_back({false, raw_query});
+            ++empty_results;
+        }
+    }
+    ++total_results;
+
+    return matched_documents;
+}
