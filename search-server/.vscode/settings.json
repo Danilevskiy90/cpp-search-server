@@ -45,6 +45,18 @@
         "ostream": "cpp",
         "stdexcept": "cpp",
         "streambuf": "cpp",
-        "typeinfo": "cpp"
-    }
+        "typeinfo": "cpp",
+        "sstream": "cpp",
+        "fstream": "cpp",
+        "optional": "cpp",
+        "qapplication": "cpp",
+        "qcoreapplication": "cpp",
+        "qwidget": "cpp",
+        "ВАЖНО - урок_концепция_полуинтервалов": "cpp",
+        "chrono": "cpp",
+        "cstring": "cpp",
+        "ctime": "cpp",
+        "ratio": "cpp"
+    },
+    "git.ignoreLimitWarning": true
 }
