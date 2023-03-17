@@ -1,3 +1,9 @@
+//Реализация класса RequestQueue - очередь запросов.
+//Сохраняет запросы в максимально допустимом количестве (по умолчанию - запросы за день)
+//Удаляет старые запросы
+//Дает возможность узнать, сколько запросов было с пустым результатом
+
+
 #pragma once
 
 #include <deque>
@@ -14,7 +20,6 @@ public:
     :search_server(search_server)
     { }
     
-    // сделаем "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
     template <typename DocumentPredicate>
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate);
     
@@ -24,16 +29,15 @@ public:
     
 private:
 //храним сам запрос и результат поиска среди документов:
-//true - что-то нашлось, false - поиск дал пустой результат
+//true - что-то нашлось, false - не нашлось
     struct QueryResult 
     {
-        // определите, что должно быть в структуре
         bool empty_result;
         std::string query;
     };
     std::deque<QueryResult> requests_;
     const static int min_in_day_ = 1440;
-    // возможно, здесь вам понадобится что-то ещё
+    
     int16_t total_results = 0;
     int16_t empty_results = 0;
     const SearchServer& search_server;
@@ -43,9 +47,7 @@ private:
 template <typename DocumentPredicate>
 std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) 
 {
-    // напишите реализацию
-
-    //кол-во поступивших запросов не должно превышать кол-во минут  в дне,
+    //кол-во поступивших запросов не должно превышать кол-во минут в дне,
     //иначе старые запросы удаляются
     auto matched_documents = search_server.FindTopDocuments(raw_query, document_predicate);
     if (total_results < min_in_day_)

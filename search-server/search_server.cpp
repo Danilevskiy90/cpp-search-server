@@ -22,9 +22,12 @@ void SearchServer::AddDocument(int document_id, const std::string& document,
     for (const std::string& word : words) 
     {
         word_to_document_freqs_[word][document_id] += inv_word_count;
+        words_frequency_by_documents_[document_id][word] += inv_word_count;
     }
-    //document_ratings_.emplace(document_id, ComputeAverageRating(ratings));
     document_info[document_id].rating = ComputeAverageRating(ratings);
+
+    document_indexes.insert(document_id);
+
 }
 
 int SearchServer::GetDocumentCount() const
@@ -32,12 +35,12 @@ int SearchServer::GetDocumentCount() const
     return document_info.size();
 }
 
-int SearchServer::GetDocumentId(int index) const 
-{
-    //int ind = index - 1;
-    document_info.at(index);
-    return index;
-}
+// int SearchServer::GetDocumentId(int index) const 
+// {
+//     //int ind = index - 1;
+//     document_info.at(index);
+//     return index;
+// }
 
 
 std::tuple<std::vector<std::string>, DocumentStatus> SearchServer::MatchDocument(const std::string& raw_query, int document_id) const
@@ -175,4 +178,68 @@ SearchServer::Query SearchServer::ParseQuery(const std::string& text) const
 double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const 
 {
     return log(document_info.size() * 1.0 / word_to_document_freqs_.at(word).size());
+}
+
+std::set<int>::const_iterator SearchServer::begin() 
+{
+    return document_indexes.cbegin();
+
+    // std::set<int> s;
+    // std::transform(document_info.begin(), document_info.end(), 
+    //                                 std::inserter(s, s.begin()),
+    //                                 [](auto pair){ return pair.first; });
+    // return s.cbegin();
+}
+
+std::set<int>::const_iterator SearchServer::end()
+{
+    return document_indexes.cend();
+}
+
+const std::map<std::string, double>& SearchServer::GetWordFrequencies(int document_id) const
+{
+    static std::map<std::string, double> words_in_document;
+
+    if (words_frequency_by_documents_.count(document_id) > 0)
+        return words_frequency_by_documents_.at(document_id);
+
+    return words_in_document;
+}
+
+void SearchServer::RemoveDocument(int document_id)
+{
+    document_info.erase(document_id);
+    document_indexes.erase(document_id);
+    for (const auto& [word, _] : words_frequency_by_documents_.at(document_id))
+    {
+        word_to_document_freqs_.at(word).erase(document_id);
+    }
+
+    words_frequency_by_documents_.erase(document_id);
+}
+
+void RemoveDuplicates(SearchServer &search_server)
+{
+    std::map<std::set<std::string>, int> storage;
+    std::vector<int> indices_for_removal;
+
+    for (const int index : search_server) 
+    {
+        const auto &word_frequencies = search_server.GetWordFrequencies(index);
+        std::set<std::string> storage_key;
+        std::transform(word_frequencies.begin(), word_frequencies.end(),
+                       std::inserter(storage_key, storage_key.begin()), [](const auto &item) { return item.first; });
+
+        
+        if (storage.count(storage_key) > 0)
+            indices_for_removal.emplace_back(index);
+        else
+            storage.insert({storage_key, index});
+    }
+
+    for (int index : indices_for_removal)
+    {
+        std::cout<<"Found duplicate document " << index << std::endl;
+        search_server.RemoveDocument(index);
+    }
 }

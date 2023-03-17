@@ -1,3 +1,5 @@
+//Разбиение на слова
+
 #pragma once
 
 #include <set>
