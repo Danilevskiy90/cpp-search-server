@@ -5,7 +5,7 @@
 #include "request_queue.h"
 #include "log_duration.h"
 #include "search_server.h"
-
+#include "remove_duplicates.h"
 
 using namespace std;
 

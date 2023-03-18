@@ -35,12 +35,6 @@ int SearchServer::GetDocumentCount() const
     return document_info.size();
 }
 
-// int SearchServer::GetDocumentId(int index) const 
-// {
-//     //int ind = index - 1;
-//     document_info.at(index);
-//     return index;
-// }
 
 
 std::tuple<std::vector<std::string>, DocumentStatus> SearchServer::MatchDocument(const std::string& raw_query, int document_id) const
@@ -213,33 +207,9 @@ void SearchServer::RemoveDocument(int document_id)
     for (const auto& [word, _] : words_frequency_by_documents_.at(document_id))
     {
         word_to_document_freqs_.at(word).erase(document_id);
+        if (word_to_document_freqs_.at(word).empty()) word_to_document_freqs_.erase(word);
     }
 
     words_frequency_by_documents_.erase(document_id);
 }
 
-void RemoveDuplicates(SearchServer &search_server)
-{
-    std::map<std::set<std::string>, int> storage;
-    std::vector<int> indices_for_removal;
-
-    for (const int index : search_server) 
-    {
-        const auto &word_frequencies = search_server.GetWordFrequencies(index);
-        std::set<std::string> storage_key;
-        std::transform(word_frequencies.begin(), word_frequencies.end(),
-                       std::inserter(storage_key, storage_key.begin()), [](const auto &item) { return item.first; });
-
-        
-        if (storage.count(storage_key) > 0)
-            indices_for_removal.emplace_back(index);
-        else
-            storage.insert({storage_key, index});
-    }
-
-    for (int index : indices_for_removal)
-    {
-        std::cout<<"Found duplicate document " << index << std::endl;
-        search_server.RemoveDocument(index);
-    }
-}

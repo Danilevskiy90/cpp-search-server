@@ -15,6 +15,10 @@
 #include "document.h"
 #include "string_processing.h"
 
+const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double EPSILON = 1e-6;
+
+
 class SearchServer
 {
 public:
