@@ -2,6 +2,8 @@
 
 #include "single-linked-list.h"
 
+// как правильно разместить файлы в проекте, чтобы можно было напрямую отправлять задание, не архивом?
+
 // Эта функция проверяет работу класса SingleLinkedList
 void Test() {
     struct DeletionSpy {
